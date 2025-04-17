@@ -16,6 +16,8 @@
 \begin{document}
 <<echo=F, message=F, warning=F>>=
 library(tidyverse)
+library(pwr)
+library(effectsize)
 @
 
 \cite{Kasdin25} show that dopamine in the brains of young zebra finches acts as 
@@ -41,6 +43,15 @@ conduct a power analysis. How many observations would the researchers
 need to detect a moderate-to-large effect ($d=0.65$) when using 
 $\alpha=0.05$ and default power (0.80) for a two-sided one sample 
 $t$ test.
+<<size = "scriptsize">>=
+pwr.t.test(d = 0.65, # large effect
+           power = 0.80,
+           sig.level = 0.05,
+           alternative = "two.sided",
+           type = "one.sample")
+
+n = 21
+@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % COLLECT DATA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -50,6 +61,23 @@ do to collect the data for Figure 2(g). Note that you only need the
 \texttt{closer\_vals} and \texttt{further\_vals}. Ensure to 
 \texttt{mutate()} the data to get a difference 
 (e.g., \texttt{closer\_vals - further\_vals}).
+<<size = "scriptsize">>=
+closer = read_csv("closer.csv") |>
+  select(1)
+farther = read_csv("farther.csv") |>
+  select(1)
+
+closer.v = closer$Values
+farther.v = farther$Values
+
+differences = c()
+
+for(i in 1:length(closer.v)){
+  differences[i] = closer.v[i] -farther.v[i]
+}
+
+data = tibble(closer = closer.v, farther = farther.v, difference = differences)
+@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % SUMMARIZE DATA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -58,13 +86,44 @@ do to collect the data for Figure 2(g). Note that you only need the
   \item Summarize the further data. Do the data suggest that
    dopamine in the brains of young zebra finches decreases when
    they sing further away?
+   The data suggests that it does decrease because as we can see in the red boxplot below almost all of the data is less than 0 showing that there was a decrease in dopamine for every bird.
    \item Summarize the closer data. Do the data suggest that
    dopamine in the brains of young zebra finches increases when
    they sing closer to their adult song?
+   \begin{center}
+   <<echo=F, fig.width=10,fig.height=3>>=
+ggplot(data = data) +
+  geom_boxplot(aes(x = closer, color = "Closer")) +
+  geom_boxplot(aes(x = farther, color = "Farther")) +
+  scale_color_manual(values = c("Closer" = "blue", "Farther" = "red"), 
+                     name = "Guide")+
+  theme_minimal()+
+  xlab("Change in Dopamine")+
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+@
+Similar to the far data, the close data shows that there is an increase in dopamine because every birds dopamine increased when they were closer. 
+\end{center}
   \item Summarize the paired differences. Do the data suggest
   that there is a difference between dopamine in the brains of
   young zebra finches when they sing further away compared to 
   closer to their adult song?
+  \begin{center}
+   <<echo=F, fig.width=10,fig.height=3>>=
+ggplot(data)+
+  geom_boxplot(aes(x=difference))+
+  theme_minimal()+
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank())+
+  xlab("Difference in Dopamine")
+@
+It suggests that there is a significant difference in the dopamine of their brains because all of the data is not near 0. This shows that there is a difference between the dopamine change when the birds are close and far is very significant. 
+\end{center}
   \item \textbf{Optional Challenge:} Can you reproduce Figure 2(g)?
   Note that the you can use \texttt{geom\_errorbar()} to plot
   the range created by adding the mean $\pm$ one standard deviation.
@@ -79,8 +138,28 @@ like: ($t=23.99$, $p<0.0001$; $g=1.34$; 95\% CI: 4.43, 4.60).\\
 correction of their $p$-values. I'm waiting to hear back from them via email!
 \begin{enumerate}
   \item ``The close responses differed significantly from 0 ($p=1.63 \times 10^{-8}$).''
+  <<size = "scriptsize",warning=F,message=F,eval=F>>=
+t.test(data$closer, alternative = "greater")
+hedges_g(x = data$closer, alternative = "greater")
+t.test(data$closer)
+
+(t = 8.3024, p < 0.0001; g = 1.61; 95% CI: 0.1173875, 0.1950586)
+@
   \item ``The far responses differed significantly from 0 ($p=5.17 \times 10^{-8}$).''
+  <<size = "scriptsize",warning=F,message=F,eval=F>>=
+t.test(data$farther, alternative = "less")
+hedges_g(x = data$farther, alternative = "less")
+t.test(data$farther)
+
+(t = -7.778, p < 0.0001; g = -1.51; 95% CI: -0.2565176, -0.1489313)
+@
   \item ``The difference between populations was significant ($p=1.04 \times10^{-8}$).''
+  <<size = "scriptsize",warning=F,message=F,eval=F>>=
+t.test(data$difference)
+hedges_g(x = data$difference)
+
+(t = 8.5109, p < 0.0001; g = 1.65; 95% CI: 0.2719028, 0.4459921)
+@
 \end{enumerate}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % CONDUCT THE TESTS
@@ -89,9 +168,60 @@ correction of their $p$-values. I'm waiting to hear back from them via email!
 hypothesis testing plots for each part of the previous question.
 \begin{enumerate}
   \item Question 4, part(a).
+<<echo=F,warning=F,message=F>>=
+graph = tibble(x=seq(-17,17, length.out = 10000), 
+               y = dt(x,24), 
+               y1=dt(x, 24, 8.3024),
+               y2=dt(x,24,-7.778),
+               y3=dt(x,24,8.5109))
+@
+\begin{center}
+  <<echo=F,fig.height=3,fig.width=3, warning = F>>=
+ggplot(graph)+
+  geom_line(aes(x=x,y=y))+
+  geom_point(aes(x=8.3024, y = pt(8.3024,24,lower.tail = F)),color = "blue")+
+  theme_minimal()+
+  ylab("Density")+
+  geom_ribbon(aes(x = x, ymin = 0, ymax = ifelse(x > qt(0.95,24), y, NA)),
+              fill = "orange", alpha = 0.7)+
+  geom_line(aes(x=x,y=y1))+
+  geom_hline(yintercept = 0)
+@
+\end{center}
+
+
   \item Question 4, part(b).
+
+\begin{center}
+<<echo=F,fig.height=3,fig.width=3, warning = F>>=
+ggplot(graph)+
+  geom_line(aes(x=x,y=y))+
+  geom_point(aes(x=-7.778, y = pt(-7.778,24,lower.tail = T)),color = "red")+
+  theme_minimal()+
+  ylab("Density")+
+  geom_ribbon(aes(x = x, ymin = 0, ymax = ifelse(x < qt(0.05,24), y, NA)),
+              fill = "orange", alpha = 0.7)+
+  geom_line(aes(x=x,y=y2))+
+  geom_hline(yintercept = 0)
+@
+\end{center}
+
   \item Question 4, part(c).
+\begin{center}
+<<echo=F,fig.height=3,fig.width=3, warning = F>>=
+ggplot(graph)+
+  geom_line(aes(x=x,y=y))+
+  geom_point(aes(x=8.5109, y = pt(8.5109,24,lower.tail = F)),color = "purple")+
+  theme_minimal()+
+  ylab("Density")+
+  geom_ribbon(aes(x = x, ymin = 0, ymax = ifelse(x < qt(0.025,24) | x > qt(0.975,24), y, NA)),
+              fill = "orange", alpha = 0.7)+
+  geom_line(aes(x=x,y=y3))+
+  geom_hline(yintercept = 0)
+@
+\end{center}
 \end{enumerate}
+This lab used the packages \texttt{tidyverse}, \texttt{pwr} and \texttt{effectsize} to calculate some of hte values above and organize the data \citep{tidyverse} \citep{pwr} \citep{effectsize}. 
 \end{enumerate}
 
 
